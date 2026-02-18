@@ -19,5 +19,5 @@ jobs:
     secrets: inherit
     uses: pingmyheart/Ping-Actions/.github/workflows/dispatcher.yml@main
     with:
-      project-type: docker-maven
-      java-version: 17
+      project-type: maven
+      java-version: 21
