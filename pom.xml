@@ -55,14 +55,14 @@
     </pluginRepositories>
 
     <properties>
-        <!-- Spring Boot -->
+        <!-- Java -->
+        <java.version>21</java.version>
+
+        <!-- Spring -->
         <spring-boot-dependencies.version>3.3.4</spring-boot-dependencies.version>
 
         <!-- Cloud -->
         <spring-cloud.version>2023.0.3</spring-cloud.version>
-
-        <!-- Java -->
-        <java.version>21</java.version>
 
         <!-- Maven -->
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -73,10 +73,11 @@
         <maven-resource-plugin.version>3.3.1</maven-resource-plugin.version>
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
         <sonar-maven-plugin.version>3.10.0.2594</sonar-maven-plugin.version>
-        <maven-deploy.skip>false</maven-deploy.skip>
+        <maven-deploy.skip>true</maven-deploy.skip>
 
-        <!-- Test -->
-        <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
+        <!-- Project -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Code Utils -->
         <lombok.version>1.18.30</lombok.version>
@@ -85,7 +86,18 @@
         <hibernate-validator.version>8.0.0.Final</hibernate-validator.version>
         <jolokia-core.version>1.7.2</jolokia-core.version>
 
-        <!-- Internal -->
+        <!-- Database -->
+        <mysql-connector-j.version>8.3.0</mysql-connector-j.version>
+        <influxdb-client-java.version>7.2.0</influxdb-client-java.version>
+
+        <!-- Storage -->
+        <minio.version>8.5.13</minio.version>
+
+        <!-- Testing -->
+        <instancio.version>5.1.0</instancio.version>
+        <testcontainers.version>2.0.1</testcontainers.version>
+        <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
+        <jacoco-maven-plugin.coverage.minimum>0.6</jacoco-maven-plugin.coverage.minimum>
 
         <!-- Project -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -135,6 +147,40 @@
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate-validator.version}</version>
             </dependency>
+
+            <!-- Database -->
+            <dependency>
+                <groupId>com.influxdb</groupId>
+                <artifactId>influxdb-client-java</artifactId>
+                <version>${influxdb-client-java.version}</version>
+            </dependency>
+
+            <!-- Storage -->
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${minio.version}</version>
+            </dependency>
+
+            <!-- Testing -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>5.10.0</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.instancio</groupId>
+                <artifactId>instancio-junit</artifactId>
+                <version>${instancio.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -183,6 +229,15 @@
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot-dependencies.version}</version>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
                     <executions>
                         <execution>
                             <id>build-info</id>
@@ -190,8 +245,12 @@
                                 <goal>build-info</goal>
                             </goals>
                         </execution>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
                     </executions>
-                    <version>${spring-boot-dependencies.version}</version>
                 </plugin>
 
                 <!-- Deploy -->
@@ -199,6 +258,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-deploy-plugin</artifactId>
                     <version>${maven-deploy-plugin.version}</version>
+                    <configuration>
+                        <skip>${maven-deploy.skip}</skip>
+                    </configuration>
                 </plugin>
 
                 <!-- Tests -->
@@ -216,6 +278,52 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco-maven-plugin.version}</version>
+                    <configuration>
+                        <excludes>
+                            <exclude>**/*Enum.class</exclude>
+                            <exclude>**/*Application.class</exclude>
+                            <exclude>**/*Configuration.class</exclude>
+                            <!-- exclude any class containing Request or Response -->
+                            <exclude>**/*Request*.class</exclude>
+                            <exclude>**/*Response*.class</exclude>
+                        </excludes>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>default-prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>check-coverage</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <rule>
+                                        <element>BUNDLE</element>
+                                        <limits>
+                                            <limit>
+                                                <counter>INSTRUCTION</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>${jacoco-maven-plugin.coverage.minimum}</minimum>
+                                            </limit>
+                                        </limits>
+                                    </rule>
+                                </rules>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -225,41 +333,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
-                <configuration>
-                    <skip>${maven-deploy.skip}</skip>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>**/*Enum.class</exclude>
-                        <exclude>**/*Application.class</exclude>
-                    </excludes>
-                    <includes>
-                        <include>com/newhorizon/**/**/*</include>
-                    </includes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>prepare-agent</id>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>report</id>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                        <configuration>
-                            <formats>
-                                <format>XML</format>
-                            </formats>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
